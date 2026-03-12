@@ -1,0 +1,155 @@
+# Experiment Configurations
+
+paths:
+  data_raw: "data/raw"
+  data_processed: "data/processed"
+  data_perturbed: "data/perturbed"
+  results_figures: "results/figures"
+  results_reports: "results/reports"
+  results_tables: "results/tables"
+
+random_seeds:
+  primary_seed: 42
+  seed_variation_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+device: "cpu"
+
+datasets:
+  adult_income:
+    name: "UCI Adult Income"
+    type: "tabular"
+    task: "binary_classification"
+    target_column: "income"
+    test_size: 0.2
+
+  diabetes:
+    name: "Diabetes Health Indicators"
+    type: "tabular"
+    task: "binary_classification"
+    target_column: "Diabetes_binary"
+    test_size: 0.2
+
+  cifar10:
+    name: "CIFAR-10"
+    type: "image"
+    task: "multiclass_classification"
+    num_classes: 10
+    image_size: 32
+    test_size: 0.2
+
+  fashion_mnist:
+    name: "Fashion-MNIST"
+    type: "image"
+    task: "multiclass_classification"
+    num_classes: 10
+    image_size: 28
+    test_size: 0.2
+
+models:
+  random_forest:
+    type: "tabular"
+    params:
+      n_estimators: 100
+      max_depth: 15
+      random_state: 42
+      n_jobs: -1
+
+  fcnn:
+    type: "tabular"
+    params:
+      hidden_layers: [ 128, 64, 32 ]
+      dropout_rate: 0.3
+      learning_rate: 0.001
+      batch_size: 256
+      epochs: 50
+      early_stopping_patience: 5
+
+  xgboost:
+    type: "tabular"
+    params:
+      n_estimators: 100
+      max_depth: 6
+      learning_rate: 0.1
+      random_state: 42
+
+  simple_cnn:
+    type: "image"
+    params:
+      dropout_rate: 0.3
+      learning_rate: 0.001
+      batch_size: 64
+      epochs: 20
+      early_stopping_patience: 5
+
+  resnet18:
+    type: "image"
+    params:
+      pretrained: true
+      dropout_rate: 0.3
+      learning_rate: 0.0001
+      batch_size: 64
+      epochs: 20
+      early_stopping_patience: 5
+
+stage1_data_quality:
+  perturbations:
+    missing_values:
+      fractions: [0.05, 0.10, 0.20]
+      strategy: "random"
+
+    class_imbalance:
+      ratios: [0.5, 0.3, 0.1]
+      method: "undersample"
+
+    noise_injection:
+      noise_levels: [0.1, 0.2, 0.5]
+      target_features: "numeric"
+
+    image_corruption:
+      blur_sigma: [1.0, 2.0, 4.0]
+      brightness_delta: [0.2, 0.4, 0.6]
+
+stage2_training_stability:
+  seed_variation:
+    num_seeds: 20
+
+  data_size_variation:
+    fractions: [1.0, 0.75, 0.50, 0.25]
+
+  hyperparameter_variation:
+    learning_rates: [0.01, 0.001, 0.0001]
+    batch_sizes: [32, 64, 128, 256]
+
+stage3_inference:
+  uncertainty:
+    mc_dropout:
+      num_forward_passes: 50
+      dropout_rate: 0.3
+
+    deep_ensembles:
+      num_models: 5
+      ensemble_seeds: [0, 1, 2, 3, 4]
+
+  explainability:
+    shap:
+      num_background_samples: 100
+      max_samples_to_explain: 200
+
+    lime:
+      num_features: 10
+      num_samples: 500
+      max_samples_to_explain: 200
+
+    gradcam:
+      target_layer: "auto"
+      max_samples_to_explain: 200
+
+  flagging:
+    uncertainty_threshold: 0.3
+    explanation_consistency_threshold: 0.5
+
+performance:
+  track_training_time: true
+  track_inference_time: true
+  track_memory_usage: true
+  track_diagnostic_overhead: true
