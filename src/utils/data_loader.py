@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from src.utils.config_loader import load_config
+from torchvision import datasets, transforms
 
 
 
@@ -53,5 +54,44 @@ def load_tabular_data(config):
     print(f" Features: {X_train.shape[1]}")
 
     return X_train, X_test, y_train, y_test
+
+# Load the image dataset
+def load_image_data(config ):
+    print("Loading dataset.")
+
+    dataset_config = config['datasets']['image_data']
+    folder_name = dataset_config["folder_name"]
+    num_channels = dataset_config["num_channels"]
+    image_size = dataset_config["image_size"]
+
+    # Set path for train and test
+    train_path = os.path.join(config['paths']['data_raw'], folder_name, "train")
+    test_path = os.path.join(config['paths']['data_raw'], folder_name, "test")
+
+    # Check folders
+    if not os.path.exists(train_path):
+        raise FileNotFoundError(f"Dataset file not found at {train_path}")
+    if not os.path.exists(test_path):
+        raise FileNotFoundError(f"Dataset file not found at {test_path}")
+
+    # Set normalisation using number of channels
+    mean = tuple([0.5] * num_channels)
+    std = tuple([0.5] * num_channels)
+
+    # Resize all images to the same size for normalisation
+    transform = transforms.Compose([
+        transforms.Resize((image_size, image_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)])
+
+    # Load from folder structure using image folder
+    train_set = datasets.ImageFolder(root = train_path, transform = transform)
+    test_set = datasets.ImageFolder(root = test_path, transform = transform)
+
+    print(f"Loaded: {len(train_set)} train and {len(test_set)} test")
+    print(f"Image size: {image_size}")
+    print(f"Classes: {len(train_set.classes)}")
+
+    return train_set, test_set
 
 

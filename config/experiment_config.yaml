@@ -29,21 +29,25 @@ datasets:
     target_column: "Diabetes_binary"
     test_size: 0.2
 
-  cifar10:
-    name: "CIFAR-10"
-    type: "image"
-    task: "multiclass_classification"
-    num_classes: 10
-    image_size: 32
-    test_size: 0.2
-
-  fashion_mnist:
+  image_data:
+#    name: "CIFAR-10"
+#    type: "image"
+#    task: "multiclass_classification"
+#    num_classes: 10
+#    image_size: 32
+#    test_size: 0.2
+#    folder_name: "cifar10"
+#    num_channels: 3
     name: "Fashion-MNIST"
     type: "image"
     task: "multiclass_classification"
     num_classes: 10
     image_size: 28
     test_size: 0.2
+    folder_name: "fashion_mnist"
+    num_channels: 1
+
+
 
 models:
   random_forest:
