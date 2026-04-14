@@ -16,28 +16,18 @@ device: "cpu"
 
 datasets:
   tabular_data:
-    name: "UCI Adult Income"
-    type: "tabular"
-    task: "binary_classification"
-    file_name: "adult_income.csv"
-    target_column: "income"
-    test_size: 0.2
-
-#  adult_income:
 #    name: "UCI Adult Income"
 #    type: "tabular"
 #    task: "binary_classification"
 #    file_name: "adult_income.csv"
 #    target_column: "income"
 #    test_size: 0.2
-#
-#  diabetes:
-#    name: "Diabetes Health Indicators"
-#    type: "tabular"
-#    task: "binary_classification"
-#    target_column: "Diabetes_binary"
-#    test_size: 0.2
-
+    name: "Diabetes Health Indicators"
+    type: "tabular"
+    task: "binary_classification"
+    file_name: "diabetes_binary_health_indicators_BRFSS2015.csv"
+    target_column: "Diabetes_binary"
+    test_size: 0.2
 
   cifar10:
     name: "CIFAR-10"
