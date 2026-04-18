@@ -51,13 +51,13 @@ def train_xgboost(X_train, y_train, config):
 def evaluate_model_rf_xgb(model, X_test, y_test):
     print("Model evaluation started for RF,XGB")
 
-    y_pred =  model.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    report = classification_report(y_test, y_pred)
+    y_prediction =  model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_prediction)
+    report = classification_report(y_test, y_prediction)
 
     print(f"{report}")
 
-    return accuracy, y_pred
+    return accuracy, y_prediction
 
 # Evaluate model for FCNN and generate report.
 def evaluate_model_fcnn(model, X_test, y_test, config):
@@ -69,37 +69,36 @@ def evaluate_model_fcnn(model, X_test, y_test, config):
     with torch.no_grad():
         X_tensor =  torch.FloatTensor(X_test.values).to(device)
         output = model(X_tensor)
-        y_pred = output.argmax(dim = 1).cpu().numpy()
+        y_prediction = output.argmax(dim = 1).cpu().numpy()
 
-    accuracy = accuracy_score(y_test, y_pred)
-    report = classification_report(y_test, y_pred)
+    accuracy = accuracy_score(y_test, y_prediction)
+    report = classification_report(y_test, y_prediction)
 
     print(f"{report}")
 
-    return accuracy, y_pred
+    return accuracy, y_prediction
 
 # Create class for fully connected neural network.
 class FCNNModel(nn.Module):
-    def __init__(self, input_size, hidden_layers, num_classes, dropout_rate):
+    def __init__(self, input_size, num_classes, dropout_rate):
+        # Call parent class
         super(FCNNModel, self).__init__()
 
-        layers = []
-        prev_size =  input_size
-
-        # Create layers and connect together.
-        for hidden_size in hidden_layers:
-            layers.append(nn.Linear(prev_size, hidden_size))
-            layers.append(nn.ReLU())
-            layers.append(nn.Dropout(dropout_rate))
-            prev_size = hidden_size
-
-        # Create output layer and connect.
-        layers.append(nn.Linear(prev_size, num_classes))
-
-        self.network = nn.Sequential(*layers)
+        self.fc1 = nn.Linear(input_size, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 32)
+        # Map last 32 neurons to number of classes.
+        self.fc4 = nn.Linear(32, num_classes)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x):
-        return self.network(x)
+        x = self.dropout(self.relu(self.fc1(x)))
+        x = self.dropout(self.relu(self.fc2(x)))
+        x = self.dropout(self.relu(self.fc3(x)))
+        x = self.fc4(x)
+        return x
+
 
 # Train the FCNN by feeding data batches.
 def train_fcnn(X_train, y_train, config):
@@ -114,7 +113,6 @@ def train_fcnn(X_train, y_train, config):
 
     model = FCNNModel(
         input_size = input_size,
-        hidden_layers = params['hidden_layers'],
         num_classes = numb_classes,
         dropout_rate = params['dropout_rate']
     ).to(device)
@@ -140,11 +138,11 @@ def train_fcnn(X_train, y_train, config):
 
         # Feed the model batch wise.
         for batch_X, batch_y in loader:
-            optimizer.zero_grad()
-            outputs = model(batch_X)
-            loss = criterion(outputs, batch_y)
-            loss.backward()
-            optimizer.step()
+            optimizer.zero_grad() # Clear old memory
+            outputs = model(batch_X) # Forward pass
+            loss = criterion(outputs, batch_y) # Calculate penalty score
+            loss.backward() # Backpropagation
+            optimizer.step() # Update weights
             epoch_loss = epoch_loss + loss.item()
 
         avg_loss = epoch_loss / len(loader)
@@ -161,7 +159,7 @@ def train_fcnn(X_train, y_train, config):
 
         # Print progress every 10 epochs.
         if (epoch + 1) % 10 == 0:
-            print(f" Epoch {epoch + 1}/{params['epochs']}, Loss: {avg_loss:.4f}")
+            print(f"Epoch {epoch + 1}/{params['epochs']}")
 
     print("FCNN training completed.")
     return model

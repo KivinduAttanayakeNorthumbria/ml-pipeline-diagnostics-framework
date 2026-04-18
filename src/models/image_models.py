@@ -10,48 +10,36 @@ from torchvision import models
 
 # Create CNN class
 class SimpleCNN(nn.Module):
-    def __init__(self, num_channels, num_classes, dropout_rate):
+    def __init__(self, num_channels, num_classes, dropout_rate, image_size):
+        # Call parent class
         super(SimpleCNN, self).__init__()
 
-        # Add convolutional layers
-        self.features = nn.Sequential(
-            nn.Conv2d(num_channels, 32, kernel_size = 3, padding = 1),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
+        # Convolutional layers
+        self.conv1 = nn.Conv2d(num_channels, 32, kernel_size = 3, padding = 1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size = 3, padding = 1 )
+        self.conv3 = nn.Conv2d(64, 128, kernel_size = 3, padding = 1 )
+        self.pool = nn.MaxPool2d(2, 2)
+        self.relu = nn.ReLU()
 
-            nn.Conv2d(32, 64, kernel_size = 3, padding = 1),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
+        # Calculate flat size, pass 3 times though forward pass so image will reduce 2 * 2 * 2
+        reduced_size = image_size // 2 // 2 // 2
+        flat_size = 128 * reduced_size * reduced_size
 
-            nn.Conv2d(64, 128, kernel_size = 3, padding = 1),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2)
-        )
-
-        # Add dense layers
-        self.classifier = None
-        self.dropout_rate = dropout_rate
-        self.num_classes = num_classes
-
-    def build_classifier(self, flat_size):
-        self.classifier = nn.Sequential(
-            nn.Linear(flat_size, 512),
-            nn.ReLU(),
-            nn.Dropout(self.dropout_rate),
-            nn.Linear(512, self.num_classes)
-        )
+        # Dense layer
+        self.fc1 = nn.Linear(flat_size, 512)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.fc2 = nn.Linear(512, num_classes)
 
     def forward(self, x):
-        x = self.features(x)
+        x = self.pool(self.relu(self.conv1(x)))
+        x = self.pool(self.relu(self.conv2(x)))
+        x = self.pool(self.relu(self.conv3(x)))
         x = x.view(x.size(0), -1)
-
-        # Create classifier on first pass when we know the flat size
-        if self.classifier is None:
-            self.build_classifier(x.size(1))
-            self.classifier = self.classifier.to(x.device)
-
-        x = self.classifier(x)
+        x = self.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
         return x
+
 
 # Train the simple CNN
 def train_simple_cnn(train_set, config):
@@ -61,11 +49,12 @@ def train_simple_cnn(train_set, config):
     dataset_config = config['datasets']['image_data']
     device = torch.device(config['device'])
 
-    # Create the model
+    # Create the model and send to device
     model = SimpleCNN(
         num_classes = dataset_config['num_classes'],
         num_channels = dataset_config['num_channels'],
-        dropout_rate = params['dropout_rate']
+        dropout_rate = params['dropout_rate'],
+        image_size = dataset_config['image_size']
     ).to(device)
 
     # Create data loader for batching
@@ -85,11 +74,11 @@ def train_simple_cnn(train_set, config):
             batch_images = batch_images.to(device)
             batch_labels = batch_labels.to(device)
 
-            optimizer.zero_grad()
-            outputs = model(batch_images)
-            loss = criterion(outputs, batch_labels)
-            loss.backward()
-            optimizer.step()
+            optimizer.zero_grad() # Clear old memory
+            outputs = model(batch_images) # Get the output
+            loss = criterion(outputs, batch_labels)  # Calculate penalty score
+            loss.backward() # Backpropagation
+            optimizer.step() # Update weights
             epoch_loss = epoch_loss + loss.item()
 
         avg_loss = epoch_loss / len(loader)
@@ -106,7 +95,7 @@ def train_simple_cnn(train_set, config):
 
         # Print progress every 5 epoches
         if (epoch + 1) % 5 == 0:
-            print(f"Epoch {epoch + 1}/{params['epochs']}, Loss: {avg_loss:.4f}")
+            print(f"Epoch {epoch + 1}/{params['epochs']}")
 
     print("Simple CNN training completed.")
     return model
@@ -116,25 +105,27 @@ def evaluate_image_model(model, test_set, config):
     print(f" Image model evaluation started.")
 
     device = torch.device(config['device'])
+    # Turn off dropout
     model.eval()
 
     loader = DataLoader(test_set, batch_size = 64, shuffle = False)
-    all_preds = []
+    all_predictions = []
     all_labels = []
 
+    # Stop calculating gradient
     with torch.no_grad():
         for batch_images, batch_labels in loader:
             batch_images = batch_images.to(device)
             outputs = model(batch_images)
-            preds = outputs.argmax(dim = 1).cpu().numpy()
-            all_preds.extend(preds)
+            predictions = outputs.argmax(dim = 1).cpu().numpy()
+            all_predictions.extend(predictions)
             all_labels.extend(batch_labels.numpy())
 
-    accuracy = accuracy_score(all_labels, all_preds)
-    report =  classification_report(all_labels, all_preds)
+    accuracy = accuracy_score(all_labels, all_predictions)
+    report =  classification_report(all_labels, all_predictions)
 
     print(f"{report}")
-    return accuracy, np.array(all_preds)
+    return accuracy, np.array(all_predictions)
 
 # ResNet_18 with pretrained weights
 def build_resnet(config):
@@ -145,18 +136,14 @@ def build_resnet(config):
     # Load pretrained ResNet18
     model = models.resnet18(weights = 'DEFAULT')
 
-    # Modify first layer if input is not 3 channels
-    if dataset_config['num_channels'] != 3:
-        model.conv1 = nn.Conv2d(
+    # Modify first layer according to dataset channels
+    model.conv1 = nn.Conv2d(
             dataset_config['num_channels'], 64, kernel_size = 7, stride =2, padding = 3, bias = False
         )
 
     # Replace final layer to match number of classes
     num_features = model.fc.in_features
-    model.fc = nn.Sequential(
-        nn.Dropout(params['dropout_rate']),
-        nn.Linear(num_features, dataset_config['num_classes'])
-    )
+    model.fc = nn.Linear(num_features, dataset_config['num_classes'])
 
     return model
 
@@ -183,11 +170,11 @@ def train_resnet(train_set, config):
             batch_images = batch_images.to(device)
             batch_labels = batch_labels.to(device)
 
-            optimizer.zero_grad()
-            outputs = model(batch_images)
-            loss = criterion(outputs, batch_labels)
-            loss.backward()
-            optimizer.step()
+            optimizer.zero_grad() # Clear old memory
+            outputs = model(batch_images) # Get the output
+            loss = criterion(outputs, batch_labels) # Calculate penalty score
+            loss.backward() # Backpropagation
+            optimizer.step() # Update weights
             epoch_loss = epoch_loss + loss.item()
 
         avg_loss = epoch_loss / len(loader)
@@ -204,7 +191,7 @@ def train_resnet(train_set, config):
 
         # Print progress every 5 epoches
         if (epoch + 1) % 5 == 0:
-            print(f"Epoch {epoch + 1}/{params['epochs']}, Loss: {avg_loss:.4f}")
+            print(f"Epoch {epoch + 1}/{params['epochs']}")
 
     print("ResNet18 training completed.")
     return model

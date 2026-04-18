@@ -36,12 +36,9 @@ def load_tabular_data(config):
     y = le.fit_transform(y)
 
     # Convert categorical columns to numbers
-    categorical_cols = X.select_dtypes(include=['category', 'object']).columns
-    for col in categorical_cols:
-        X[col] = LabelEncoder().fit_transform(X[col].astype(str))
-
-    # Fill missing values
-    X = X.fillna(X.median())
+    categorical_columns = X.select_dtypes(include=['category', 'object']).columns
+    for column in categorical_columns:
+        X[column] = LabelEncoder().fit_transform(X[column].astype(str))
 
     # Scale all features to similar ranges
     scaler = StandardScaler()

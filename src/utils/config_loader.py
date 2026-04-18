@@ -1,4 +1,4 @@
-# Load experiment settings from the YAML config file.
+# Load experiment settings from the YAML configuration file.
 
 import os
 import yaml
