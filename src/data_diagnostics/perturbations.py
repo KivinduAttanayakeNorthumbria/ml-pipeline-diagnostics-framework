@@ -1,33 +1,32 @@
 # Stage 1 experiment - faults injections
 import numpy as np
-import pandas as pd
-from PIL import ImageFilter, ImageEnhance, Image
+from PIL import ImageFilter, ImageEnhance
 
 # Inject fault values into tabular data
-def inject_missing_value_tab(X, fraction, seed):
-    print(f"Injecting {fraction*100:.0f}% fault values")
+def inject_fault_value_tab(X, fraction, seed):
+    print(f"Injecting {fraction * 100:.0f}% fault values")
 
     gen = np.random.RandomState(seed)
+    # Get a copy of original before change
     X_injected = X.copy()
 
     # Number of values to remove
     total_values = X_injected.shape[0] * X_injected.shape[1]
-    num_missing = int(total_values * fraction)
+    # Calculate number of data to remove
+    num_values_to_remove = int(total_values * fraction)
 
-    # Select random column and row
-    rn_col = gen.randint(0, X_injected.shape[1], size = num_missing)
-    rn_row = gen.randint(0, X_injected.shape[0], size = num_missing)
+    # Select list of random column and row within the boundary
+    random_columns = gen.randint(0, X_injected.shape[1], size = num_values_to_remove)
+    random_rows = gen.randint(0, X_injected.shape[0], size = num_values_to_remove)
 
-    # Change into Nan
-    for r,c in zip(rn_row,rn_col):
+    # Change into Nan by simulating real word missing data
+    for r,c in zip(random_rows,random_columns):
         X_injected.iloc[r, c] = np.nan
 
-    # Fill NaN with column median value
+    # Fill NaN with column median value ( median = robust to outliers)
     X_injected = X_injected.fillna(X_injected.median())
 
-    actual_missing = num_missing / total_values
-    print(f"Removed {num_missing} values from the data")
-
+    print(f"Perturbed {fraction * 100:.0f} values from the data")
     return X_injected
 
 # Inject class imbalance
@@ -73,10 +72,12 @@ def inject_noise_tab(X, noise_level, seed):
     X_noised = X.copy()
 
     # Add noise proportional to column
-    for col in X_noised.columns:
-        col_range = X_noised[col].max() - X_noised[col].min()
-        noise = gen.normal(0, noise_level * col_range, size = len(X_noised[col]))
-        X_noised[col] = X_noised[col] + noise
+    for column in X_noised.columns:
+        # Calculate range of the column ( max - min )
+        column_range = X_noised[column].max() - X_noised[column].min()
+        # Calculate noise value and generate noise values according to columns
+        noise = gen.normal(0, noise_level * column_range, size = len(X_noised[column]))
+        X_noised[column] = X_noised[column] + noise
 
     print(f"Noise added to {len(X_noised.columns)} ")
 
@@ -91,14 +92,5 @@ def apply_brightness_img(image, brightness):
     enhancer = ImageEnhance.Brightness(image)
     return enhancer.enhance(1 + brightness)
 
-
-# Apply random pixel noise to an image
-def apply_noise_img(image, noise_level, seed):
-    gen = np.random.RandomState(seed)
-    img_array = np.array(image).astype(np.float32)
-    noise = gen.normal(0, noise_level * 255, size = img_array.shape)
-    img_noise = np.clip(img_array + noise, 0, 255).astype(np.uint8)
-
-    return Image.fromarray(img_noise)
 
 
