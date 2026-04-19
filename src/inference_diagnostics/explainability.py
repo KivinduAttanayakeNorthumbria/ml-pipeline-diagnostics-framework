@@ -1,5 +1,3 @@
-from xml.sax.handler import feature_namespaces
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -18,29 +16,35 @@ def shap_tab(model, X_train, X_test, config, is_pytorch = False):
     num_background = params['num_background_samples']
     max_samples = params['max_samples_to_explain']
 
-    # Sample background data
+    # Sample background data to understand normal feature value (baseline to compare)
     background = shap.sample(X_train, num_background)
 
     # Sample test data to explain
     samples_explained = X_test.iloc[:max_samples]
 
-    # Chose the explainer
+    # Select the explainer
     if is_pytorch:
         device = torch.device(config['device'])
+        # Evaluation the model without dropout
         model.eval()
 
         def predict_function(sample):
+            # Transform to tensor
             x_tensor = torch.FloatTensor(sample).to(device)
+            # Diable backpropagation ( no training )
             with torch.no_grad():
                 outputs = model(x_tensor)
-                probs = torch.softmax(outputs, dim = 1).cpu().numpy()
-            return probs
-
+                # Convert score to probabilities
+                probabilities = torch.softmax(outputs, dim = 1).cpu().numpy()
+            return probabilities
+        # KernelExplainer works with any model
         explainer = shap.KernelExplainer(predict_function, background)
     else:
         try:
+            # Try TreeExplainer for tree models to save time
             explainer = shap.TreeExplainer(model)
         except Exception:
+            # If the tree explainer fail, try the KernelExplainer for tree based models
             explainer = shap.KernelExplainer(model.predict_proba, background)
 
     # Calculate SHAP values
@@ -60,6 +64,7 @@ def lime_tab(model, X_train, X_test, config, is_pytorch = False):
 
     # Create LIME explainer
     feature_names = list(X_train.columns)
+    # Use range in feature
     explainer = lime.lime_tabular.LimeTabularExplainer(
         training_data = X_train.values,
         feature_names = feature_names,
@@ -72,24 +77,30 @@ def lime_tab(model, X_train, X_test, config, is_pytorch = False):
     # Create prediction function
     if is_pytorch:
         device = torch.device(config['device'])
+        # Evaluation model without dropout
         model.eval()
 
         def predict_function(sample):
             x_tensor = torch.FloatTensor(sample).to(device)
+            # Diable backpropagation ( no training )
             with torch.no_grad():
                 outputs = model(x_tensor)
-                probs = torch.softmax(outputs, dim = 1).cpu().numpy()
-            return probs
+                # Convert score to probabilities
+                probabilities = torch.softmax(outputs, dim = 1).cpu().numpy()
+            return probabilities
     else:
+        # Different function for tree models
         predict_function = model.predict_proba
 
     # Explain each sample
     all_explanations = []
+    # Explain one sample at a time
     for ex in range(len(samples_explained)):
+        # Create 500 slightly different copies and use simple leaner regression
         explanation = explainer.explain_instance(
             data_row = samples_explained.iloc[ex].values,
             predict_fn = predict_function,
-            num_features  = num_features,#
+            num_features  = num_features,
             num_samples = num_samples,
         )
         all_explanations.append(explanation)
@@ -108,24 +119,29 @@ def gradcam_img(model, test_set, config):
     max_samples = params['max_samples_to_explain']
     device = torch.device(config['device'])
 
+    # Evaluation the model without dropout
     model.eval()
 
     # Find the lat convolutional layer
     target_layer = None
+    # Check the layers reverse to find the last Conv2d layer
+    # Last layer contains meaningful features
     for module in reversed(list(model.modules())):
         if isinstance(module, nn.Conv2d):
-            target_layer = module#
+            target_layer = module
             break
 
+    # Verify there is a Conv2d layer
     if target_layer is None:
         raise ValueError("Target layer not found.")
 
-    # Create Grad-CAM
+    # Create Grad-CAM object to watch at last target layer
     cam = GradCAM(model, target_layers = [target_layer] )
 
     # Get samples to explain
     loader = DataLoader(test_set, batch_size = 1, shuffle = False)
 
+    # Empty array to collect heatmaps
     all_heatmaps = []
     count = 0
 
@@ -138,9 +154,11 @@ def gradcam_img(model, test_set, config):
         # Get model prediction
         with torch.no_grad():
             output = model(batch_images)
+            # Select the highest class
             predicted_class = output.argmax(dim = 1).item()
 
         # Generate heatmap for predicted class
+        # Going backwards to find the features which contribute most to the prediction
         targets = [ClassifierOutputTarget(predicted_class)]
         heatmap = cam(input_tensor = batch_images, targets = targets)
         all_heatmaps.append(heatmap[0])
@@ -151,6 +169,49 @@ def gradcam_img(model, test_set, config):
 
     print(f"GradCam finished. Explained: {len(all_heatmaps)} samples.")
     return all_heatmaps
+
+# Calculate explanation consistency for tabular (SHAP and LIME)
+# The agreement of both SHAP and LIME top 5 features
+def calculate_consistency_tabular(shap_values, lime_explanation, feature_names, top = 5):
+    print("Calculate consistency tabular.")
+    # Empty array for collect 200 samples scores
+    consistency_scores = []
+
+    # Loop each LIME sample and compare with SHAP
+    for i in range(len(lime_explanation)):
+        # Check whether the shap values return with two arrays ( TreeExplainer )
+        if isinstance(shap_values, list):
+            sample_shap = np.abs(shap_values[1][i])
+        else:
+            sample_shap = np.abs(shap_values[i])
+
+        # Sort values and return its indices (last 5 biggest values )
+        shap_top_indices = set(np.argsort(sample_shap)[-top:])
+
+        # Get LIME top features
+        lime_exp = lime_explanation[i]
+        lime_top_indices = set()
+        # Select top 5 features
+        for feature_text, weight in lime_exp.as_list()[:top]:
+            # Convert LIME text back to features
+            for idx, name in enumerate(feature_names):
+                if name in feature_text:
+                    # Filtered LIME top indices
+                    lime_top_indices.add(idx)
+                    break
+
+        # Calculate overlap between SHAP and LIME
+        if len(lime_top_indices) > 0:
+            overlap = len(shap_top_indices.intersection(lime_top_indices))
+            consistency = overlap / top
+        else:
+            consistency = 0
+        # Add one sample consistency score to the list
+        consistency_scores.append(consistency)
+
+    consistency_scores = np.array(consistency_scores)
+    return consistency_scores
+
 
 
 
