@@ -182,6 +182,8 @@ def calculate_consistency_tabular(shap_values, lime_explanation, feature_names, 
         # Check whether the shap values return with two arrays ( TreeExplainer )
         if isinstance(shap_values, list):
             sample_shap = np.abs(shap_values[1][i])
+        elif len(shap_values.shape) == 3:
+            sample_shap = np.abs(shap_values[i, :, 1])
         else:
             sample_shap = np.abs(shap_values[i])
 
