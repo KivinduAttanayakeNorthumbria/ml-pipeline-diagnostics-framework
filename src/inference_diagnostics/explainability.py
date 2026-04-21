@@ -212,6 +212,41 @@ def calculate_consistency_tabular(shap_values, lime_explanation, feature_names, 
     consistency_scores = np.array(consistency_scores)
     return consistency_scores
 
+# Collect user feedback on Grad-CAM heatmaps
+def collect_gradcam_feedback(num_samples):
+    print(f"Review the {num_samples} heatmap above")
+    print("Enter verdicts as comma separated numbers. Ex:1,2,3,2,2,1")
+    print("1 = Correct (model is looking at the correct areas)")
+    print("2 = Partial (model is looking at some correct areas)")
+    print("3 = Incorrect (model is looking at wrong areas)")
 
+    # Collect user input
+    user_input = input("Verdicts: ")
+    verdicts = user_input.split(',')
 
+    # Call again the collect function on wrong inputs
+    if len(verdicts) != num_samples:
+        print("Invalid number of verdicts.")
+        return collect_gradcam_feedback(num_samples)
+
+    # Convert to consistency scores
+    score_map = {'1': 1.0, '2': 0.5, '3': 0.0}
+    consistency_scores = []
+
+    for verdict in verdicts:
+        verdict = verdict.strip()
+        if verdict in score_map:
+            consistency_scores.append(score_map[verdict])
+        else:
+            # Assign partial score for unknown user inputs
+            consistency_scores.append(0.5)
+
+    consistency_scores = np.array(consistency_scores)
+
+    correct = np.sum(consistency_scores == 1.0)
+    partial = np.sum(consistency_scores == 0.5)
+    incorrect = np.sum(consistency_scores == 0.0)
+
+    print(f"Correct: {correct}, Incorrect: {incorrect}, Partial: {partial}")
+    return consistency_scores, correct, incorrect, partial
 
