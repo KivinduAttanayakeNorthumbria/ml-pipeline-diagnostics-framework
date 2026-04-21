@@ -11,6 +11,7 @@ paths:
 random_seeds:
   primary_seed: 42
   seed_variation_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+  image_seed_list: [0,1,2]
 
 device: "cpu"
 
@@ -28,6 +29,7 @@ datasets:
     file_name: "diabetes_binary_health_indicators_BRFSS2015.csv"
     target_column: "Diabetes_binary"
     test_size: 0.2
+    missing_value: "median"
 
   image_data:
     name: "CIFAR-10"
@@ -47,8 +49,6 @@ datasets:
 #    folder_name: "fashion_mnist"
 #    num_channels: 1
 
-
-
 models:
   random_forest:
     type: "tabular"
@@ -61,7 +61,6 @@ models:
   fcnn:
     type: "tabular"
     params:
-      hidden_layers: [ 128, 64, 32 ]
       dropout_rate: 0.3
       learning_rate: 0.001
       batch_size: 256
@@ -123,6 +122,8 @@ stage2_training_stability:
   hyperparameter_variation:
     learning_rates: [0.01, 0.001, 0.0001]
     batch_sizes: [32, 64, 128, 256]
+    learning_rates_images: [0.01, 0.0001]
+    batch_sizes_images: [32, 256]
 
 stage3_inference:
   uncertainty:
@@ -146,10 +147,11 @@ stage3_inference:
 
     gradcam:
       target_layer: "auto"
-      max_samples_to_explain: 200
+      max_samples_to_explain: 20
 
   flagging:
-    uncertainty_threshold: 0.3
+    mc_dropout_uncertainty_threshold: 0.3
+    deep_ensemble_uncertainty_threshold: 0.3
     explanation_consistency_threshold: 0.5
 
 performance:
