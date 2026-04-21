@@ -10,10 +10,10 @@ paths:
 
 random_seeds:
   primary_seed: 42
-  seed_variation_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+  seed_variation_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   image_seed_list: [0,1,2]
 
-device: "cpu"
+device: "cuda"
 
 datasets:
   tabular_data:
@@ -30,6 +30,7 @@ datasets:
     target_column: "Diabetes_binary"
     test_size: 0.2
     missing_value: "median"
+    remove_duplicates: false
 
   image_data:
     name: "CIFAR-10"
@@ -114,7 +115,7 @@ stage1_data_quality:
 
 stage2_training_stability:
   seed_variation:
-    num_seeds: 20
+    num_seeds: 10
 
   data_size_variation:
     fractions: [1.0, 0.75, 0.50, 0.25]
@@ -138,20 +139,20 @@ stage3_inference:
   explainability:
     shap:
       num_background_samples: 100
-      max_samples_to_explain: 200
+      max_samples_to_explain: 50
 
     lime:
       num_features: 10
       num_samples: 500
-      max_samples_to_explain: 200
+      max_samples_to_explain: 50
 
     gradcam:
       target_layer: "auto"
       max_samples_to_explain: 20
 
   flagging:
-    mc_dropout_uncertainty_threshold: 0.3
-    deep_ensemble_uncertainty_threshold: 0.3
+    mc_dropout_uncertainty_threshold: 0.0585
+    deep_ensemble_uncertainty_threshold: 0.0302
     explanation_consistency_threshold: 0.5
 
 performance:
