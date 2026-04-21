@@ -4,6 +4,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+plt.style.use('default')
+plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams['axes.facecolor'] = 'white'
+
 # Save figure
 def save_figure(figure, filename, config):
     save_path = os.path.join(config['paths']['results_figures'], filename)
@@ -44,6 +48,7 @@ def plot_feature_boxplots(X, title, config):
     figure, axes = plt.subplots(figsize = (12, 6))
 
     X.boxplot(ax = axes, rot = 45)
+    sns.boxplot(data = X, ax = axes, palette = "Set2" )
     axes.set_title(f"Feature Distribution-{title}")
     axes.set_ylabel("Value")
 
@@ -130,10 +135,10 @@ def plot_flag_distribution(flags, title, config):
     save_figure(figure, f"flagging_distribution_{title.lower().replace(' ', '_')}.png", config)
 
 # Plot 5 - Uncertainty distribution
-def plot_uncertainty_distribution(uncertainty, title, config):
+def plot_uncertainty_distribution(uncertainty, title, threshold, config):
     figure, axes = plt.subplots(figsize = (8, 5))
     axes.hist(uncertainty, bins = 50, alpha = 0.7)
-    axes.axvline(x = config['stage3_inference']['flagging']['uncertainty_threshold'], linestyle = '--', color = 'red', label = 'Threshold')
+    axes.axvline(x = threshold, linestyle = '--', color = 'red', label = 'Threshold')
     axes.set_xlabel("Uncertainty Score")
     axes.set_ylabel("Count")
     axes.set_title(f"Uncertainty Distribution - {title}")
