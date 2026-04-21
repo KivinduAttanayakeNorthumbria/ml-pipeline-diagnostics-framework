@@ -84,6 +84,35 @@ def mc_dropout_prediction_img(model, X_test, config):
 
 # Deep Ensembles (train multiple models with different seeds)
 
+# Deep Ensemble for sklearn models (RF and XGBoost)
+def deep_ensemble_prediction_sklern(train_function, X_train, y_train, X_test, config):
+    print("Deep Ensemble started for tabular and sklern.")
+    params = config["stage3_inference"]["uncertainty"]["deep_ensembles"]
+    num_models = params["num_models"]
+    ensemble_seeds = params["ensemble_seeds"]
+
+    # Collect prediction for 5 models
+    all_predictions = []
+
+    for seed in ensemble_seeds[:num_models]:
+        print(f"Training model with seed {seed}")
+        # Create random weights for every seed
+        np.random.seed(seed)
+        # Train a new model from scratch
+        model = train_function(X_train, y_train, config)
+        predictions = model.predict_proba(X_test)
+        all_predictions.append(predictions)
+
+    all_predictions = np.array(all_predictions)
+
+    # Get mean and std across passes
+    mean_probs = all_predictions.mean(axis=0)
+    # Calculate standard deviation of prediction probabilities and the calculate mean of std to ge one uncertainty value
+    uncertainty = all_predictions.std(axis=0).mean(axis=1)
+
+    print("Deep Ensemble finished for tabular sklern.")
+    return mean_probs, uncertainty
+
 def deep_ensemble_prediction_tab(train_function, X_train, y_train, X_test, config):
     print("Deep Ensemble started for tabular.")
     params = config["stage3_inference"]["uncertainty"]["deep_ensembles"]
