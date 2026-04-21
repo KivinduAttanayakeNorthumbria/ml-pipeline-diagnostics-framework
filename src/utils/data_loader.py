@@ -20,6 +20,7 @@ def load_tabular_data(config):
     target_column = config['datasets']['tabular_data']['target_column']
     test_size = config['datasets']['tabular_data']['test_size']
     seed = config['random_seeds']['primary_seed']
+    missing_value = config['datasets']['tabular_data']['missing_value']
 
     # Load data into dataframe
     raw_path = os.path.join(config['paths']['data_raw'], dataset_file)
@@ -30,6 +31,20 @@ def load_tabular_data(config):
     # Separate features columns and target column
     y = df[target_column]
     X = df.drop(columns=[target_column])
+
+    # Fill null values using user defined value
+    missing_count = X.isnull().sum().sum()
+    if missing_count > 0:
+        if missing_value == 'mean':
+            X = X.fillna(X.mean())
+        elif missing_value == 'median':
+            X = X.fillna(X.median())
+        elif missing_value == 'mode':
+            X = X.fillna(X.mode().iloc[0])
+        else:
+            raise ValueError("Please provide a valid missing value.")
+    else:
+        print("No missing value found.")
 
     # Encode target labels to 0 and 1
     le = LabelEncoder()
