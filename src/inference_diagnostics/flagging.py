@@ -6,14 +6,15 @@ import numpy as np
 # RED - Uncertainty very high (do not trust)
 # YELLOW - Either one flags (review needed)
 # GREEN - Both pass (likely trustworthy)
-def assign_flags(uncertainty, explanation_consistency, config):
+def assign_flags(uncertainty, explanation_consistency, uq_threshold, xai_threshold, config):
     thresholds = config['stage3_inference']['flagging']
-    uq_threshold = thresholds['uncertainty_threshold']
-    xai_threshold = thresholds['explanation_consistency_threshold']
+    # uq_threshold = thresholds['uncertainty_threshold']
+    # xai_threshold = thresholds['explanation_consistency_threshold']
 
     flags = []
 
     for uq in range(len(uncertainty)):
+        # Check with thresholds and assign boolean values
         high_uncertainty = uncertainty[uq] > uq_threshold
         low_consistency = explanation_consistency[uq] < xai_threshold
 
@@ -28,8 +29,8 @@ def assign_flags(uncertainty, explanation_consistency, config):
     return flags
 
 # Evaluate flagging system
-def evaluate_flags(flags, y_pred, y_true):
-    correct = (y_pred == y_true)
+def evaluate_flags(flags, y_predictions, y_true):
+    correct = (y_predictions == y_true)
     results = {}
 
     for flag_type in  ['RED', 'YELLOW', 'GREEN']:
