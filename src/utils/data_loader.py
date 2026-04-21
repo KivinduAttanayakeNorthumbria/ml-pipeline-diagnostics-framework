@@ -1,6 +1,8 @@
 # Loading data set
 
 import os
+from importlib.readers import remove_duplicates
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -21,12 +23,19 @@ def load_tabular_data(config):
     test_size = config['datasets']['tabular_data']['test_size']
     seed = config['random_seeds']['primary_seed']
     missing_value = config['datasets']['tabular_data']['missing_value']
+    remove_duplicates = config['datasets']['tabular_data']['remove_duplicates']
 
     # Load data into dataframe
     raw_path = os.path.join(config['paths']['data_raw'], dataset_file)
     if not os.path.exists(raw_path):
         raise FileNotFoundError(f"Dataset file not found at {raw_path}")
     df = pd.read_csv(raw_path)
+
+    # Remove duplicates according to the configuration value
+    if remove_duplicates:
+        before_count = len(df)
+        df = df.drop_duplicates()
+        after_count = len(df)
 
     # Separate features columns and target column
     y = df[target_column]
