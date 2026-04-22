@@ -118,11 +118,11 @@ stage2_training_stability:
     num_seeds: 5
 
   data_size_variation:
-    fractions: [1.0, 0.75, 0.50, 0.25]
+    fractions: [0.75, 0.50, 0.25]
 
   hyperparameter_variation:
-    learning_rates: [0.01, 0.001, 0.0001]
-    batch_sizes: [32, 64, 128, 256]
+    learning_rates: [0.01, 0.0001]
+    batch_sizes: [32, 128]
     learning_rates_images: [0.01, 0.0001]
     batch_sizes_images: [32, 256]
 
