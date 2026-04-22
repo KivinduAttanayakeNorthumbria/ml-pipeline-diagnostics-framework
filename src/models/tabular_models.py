@@ -53,11 +53,11 @@ def evaluate_model_rf_xgb(model, X_test, y_test):
 
     y_prediction =  model.predict(X_test)
     accuracy = accuracy_score(y_test, y_prediction)
-    report = classification_report(y_test, y_prediction)
+    report = classification_report(y_test, y_prediction, output_dict=True)
 
     print(f"{report}")
 
-    return accuracy, y_prediction
+    return accuracy, y_prediction, report
 
 # Evaluate model for FCNN and generate report.
 def evaluate_model_fcnn(model, X_test, y_test, config):
@@ -72,11 +72,11 @@ def evaluate_model_fcnn(model, X_test, y_test, config):
         y_prediction = output.argmax(dim = 1).cpu().numpy()
 
     accuracy = accuracy_score(y_test, y_prediction)
-    report = classification_report(y_test, y_prediction)
+    report = classification_report(y_test, y_prediction, output_dict=True)
 
     print(f"{report}")
 
-    return accuracy, y_prediction
+    return accuracy, y_prediction, report
 
 # Create class for fully connected neural network.
 class FCNNModel(nn.Module):
