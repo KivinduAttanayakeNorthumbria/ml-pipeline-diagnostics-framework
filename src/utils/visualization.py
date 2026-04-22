@@ -126,10 +126,25 @@ def plot_flag_distribution(flags, title, config):
     red = int(np.sum(flags == 'RED'))
     yellow = int(np.sum(flags == 'YELLOW'))
     green = int(np.sum(flags == 'GREEN'))
+    total = red + yellow + green
     count = [green, yellow, red]
     labels = [f"GREEN\n{green}", f"YELLOW\n{yellow}", f"RED\n{red}"]
     colors = ['green', 'yellow', 'red']
-    axes.pie(count, labels = labels, colors = colors, autopct = '%1.1f%%', startangle = 90)
+
+    #Remove zero slices
+    filtered_count = []
+    filtered_labels = []
+    filtered_colors = []
+
+    for i, (c, name, color) in enumerate(zip(count, ['GREEN', 'YELLOW', 'RED'], colors)):
+        if c > 0:
+            percentage = round(c / total * 100, 1)
+            filtered_count.append(c)
+            filtered_labels.append(f"{name}: {c} ({percentage}%)")
+            filtered_colors.append(color)
+
+    axes.pie(filtered_count, colors = filtered_colors, startangle = 90)
+    axes.legend(filtered_labels, loc = 'lower right')
     axes.set_title(f"Prediction Flags - {title}")
 
     save_figure(figure, f"flagging_distribution_{title.lower().replace(' ', '_')}.png", config)
