@@ -44,8 +44,10 @@ def shap_tab(model, X_train, X_test, config, is_pytorch = False):
             # Try TreeExplainer for tree models to save time
             explainer = shap.TreeExplainer(model)
         except Exception:
-            # If the tree explainer fail, try the KernelExplainer for tree based models
-            explainer = shap.KernelExplainer(model.predict_proba, background)
+            # If the tree explainer fail, wrap predict_proba to avoid compatibility issues
+            def predict_function(sample):
+                return model.predict_proba(sample)
+            explainer = shap.KernelExplainer(predict_function, background)
 
     # Calculate SHAP values
     shap_values = explainer.shap_values(samples_explained)
