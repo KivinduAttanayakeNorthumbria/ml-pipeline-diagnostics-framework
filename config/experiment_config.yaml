@@ -10,7 +10,7 @@ paths:
 
 random_seeds:
   primary_seed: 42
-  seed_variation_list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  seed_variation_list: [0, 1, 2, 3, 4]
   image_seed_list: [0,1,2]
 
 device: "cuda"
@@ -115,7 +115,7 @@ stage1_data_quality:
 
 stage2_training_stability:
   seed_variation:
-    num_seeds: 10
+    num_seeds: 5
 
   data_size_variation:
     fractions: [1.0, 0.75, 0.50, 0.25]
@@ -139,12 +139,12 @@ stage3_inference:
   explainability:
     shap:
       num_background_samples: 100
-      max_samples_to_explain: 50
+      max_samples_to_explain: 200
 
     lime:
       num_features: 10
       num_samples: 500
-      max_samples_to_explain: 50
+      max_samples_to_explain: 200
 
     gradcam:
       target_layer: "auto"
