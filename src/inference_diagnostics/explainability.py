@@ -128,10 +128,18 @@ def gradcam_img(model, test_set, config):
     target_layer = None
     # Check the layers reverse to find the last Conv2d layer
     # Last layer contains meaningful features
-    for module in reversed(list(model.modules())):
-        if isinstance(module, nn.Conv2d):
-            target_layer = module
-            break
+    # for module in reversed(list(model.modules())):
+    #     if isinstance(module, nn.Conv2d):
+    #         target_layer = module
+    #         break
+    if hasattr(model, 'layer3'):
+        print("*****************************************************************************************")
+        target_layer = model.layer3[-1]
+    else:
+        for module in reversed(list(model.modules())):
+            if isinstance(module, nn.Conv2d):
+                target_layer = module
+                break
 
     # Verify there is a Conv2d layer
     if target_layer is None:
