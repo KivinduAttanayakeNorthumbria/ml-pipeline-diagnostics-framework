@@ -110,8 +110,8 @@ stage1_data_quality:
       target_features: "numeric"
 
     image_corruption:
-      blur_sigma: [1.0, 2.0, 4.0]
-      brightness_delta: [0.2, 0.4, 0.6]
+      blur_sigma: [1.0, 4.0]
+      brightness_delta: [0.2, 0.6]
 
 stage2_training_stability:
   seed_variation:
