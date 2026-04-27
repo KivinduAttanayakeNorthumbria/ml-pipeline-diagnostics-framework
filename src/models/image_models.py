@@ -122,10 +122,10 @@ def evaluate_image_model(model, test_set, config):
             all_labels.extend(batch_labels.numpy())
 
     accuracy = accuracy_score(all_labels, all_predictions)
-    report =  classification_report(all_labels, all_predictions)
+    report =  classification_report(all_labels, all_predictions, output_dict=True)
 
     print(f"{report}")
-    return accuracy, np.array(all_predictions)
+    return accuracy, np.array(all_predictions), report
 
 # ResNet_18 with pretrained weights
 def build_resnet(config):
