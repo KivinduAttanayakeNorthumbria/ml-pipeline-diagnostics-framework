@@ -162,7 +162,7 @@ def plot_uncertainty_distribution(uncertainty, title, threshold, config):
     save_figure(figure, f"uncertainty_distribution_{title.lower().replace(' ', '_')}.png", config)
 
 # Plot Grad-CAM heatmaps for sample images
-def plot_gradcam_sample(test_set, heatmaps, predictions, num_samples, config, title, save = True):
+def plot_gradcam_sample(test_set, heatmaps, num_samples, config, title, save = True):
     columns = 4
     rows = (num_samples + columns - 1) // columns
     figure, axes = plt.subplots(rows, columns * 2, figsize = (20, 3 * rows))
@@ -178,7 +178,7 @@ def plot_gradcam_sample(test_set, heatmaps, predictions, num_samples, config, ti
 
         # Original image
         axes[row][column].imshow(image_display)
-        axes[row][column].set_title(f"[{i}] prediction:{predictions[i]}")
+        axes[row][column].set_title(f"[{i}] class:{label}")
         axes[row][column].axis('off')
 
         # heatmap overlay
