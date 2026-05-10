@@ -41,5 +41,5 @@ This was tested on RTX 5070 (Blackwell architecture) which required nightly Pyto
 
 Author:
 
-Kivindu Attanayake
+Kivindu Attanayake, 
 MSc Data Science, Northumbria University
