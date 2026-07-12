@@ -7,6 +7,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, classification_report
 from torchvision import models
+from src.utils.config_loader import get_image_config
 
 # Create CNN class
 class SimpleCNN(nn.Module):
@@ -46,7 +47,7 @@ def train_simple_cnn(train_set, config):
     print(f"Simple CNN training started.")
 
     params = config['models']['simple_cnn']['params']
-    dataset_config = config['datasets']['image_data']
+    dataset_config = get_image_config(config)
     device = torch.device(config['device'])
 
     # Create the model and send to device
@@ -130,7 +131,7 @@ def evaluate_image_model(model, test_set, config):
 # ResNet_18 with pretrained weights
 def build_resnet(config):
 
-    dataset_config = config['datasets']['image_data']
+    dataset_config = get_image_config(config)
     params = config['models']['resnet18']['params']
 
     # Load pretrained ResNet18

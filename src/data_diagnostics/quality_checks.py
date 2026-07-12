@@ -1,11 +1,12 @@
 # Data quality check (EDA and health report)
 
 import numpy as np
+from src.utils.config_loader import get_tabular_config, get_image_config
 
 # Run quality checks on tabular data
 def check_tabular_quality(X, y, config):
     print("EDA started for tabular data.")
-    dataset_name = config['datasets']['tabular_data']['name']
+    dataset_name = get_tabular_config(config)['name']
     report = {}
 
     # Dataset basic shape
@@ -66,7 +67,7 @@ def check_tabular_quality(X, y, config):
 # Run quality checks on image data
 def check_image_quality(dataset, config):
     print("EDA started for image data.")
-    dataset_name = config['datasets']['image_data']['name']
+    dataset_name = get_image_config(config)['name']
     report = {}
 
     # Basic counts

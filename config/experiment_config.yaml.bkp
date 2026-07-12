@@ -7,69 +7,48 @@ paths:
   results_figures: "results/figures"
   results_reports: "results/reports"
   results_tables: "results/tables"
-  results_per_sample: "results/per_sample"
-  thresholds_file: "results/reports/thresholds.json"
-  feedback_file: "results/reports/gradcam_feedback.json"
 
 random_seeds:
   primary_seed: 42
   seed_variation_list: [0, 1, 2, 3, 4]
-  image_seed_list: [0, 1, 2]
+  image_seed_list: [0,1,2]
 
 device: "cuda"
 
-# Switch datasets here. One line each. Do not comment out blocks.
-active_tabular: "diabetes"
-active_image: "cifar10"
-
 datasets:
-  tabular:
-    diabetes:
-      name: "Diabetes Health Indicators"
-      short_name: "diabetes"
-      type: "tabular"
-      task: "binary_classification"
-      file_name: "diabetes_binary_health_indicators_BRFSS2015.csv"
-      target_column: "Diabetes_binary"
-      test_size: 0.2
-      missing_value: "median"
-      remove_duplicates: false
-      na_values: []
+  tabular_data:
+#    name: "UCI Adult Income"
+#    type: "tabular"
+#    task: "binary_classification"
+#    file_name: "adult_income.csv"
+#    target_column: "income"
+#    test_size: 0.2
+    name: "Diabetes Health Indicators"
+    type: "tabular"
+    task: "binary_classification"
+    file_name: "diabetes_binary_health_indicators_BRFSS2015.csv"
+    target_column: "Diabetes_binary"
+    test_size: 0.2
+    missing_value: "median"
+    remove_duplicates: false
 
-    adult:
-      name: "UCI Adult Income"
-      short_name: "adult"
-      type: "tabular"
-      task: "binary_classification"
-      file_name: "adult_income.csv"
-      target_column: "income"
-      test_size: 0.2
-      missing_value: "mode"
-      remove_duplicates: false
-      na_values: ["?", " ?"]
-
-  image:
-    cifar10:
-      name: "CIFAR-10"
-      short_name: "cifar10"
-      type: "image"
-      task: "multiclass_classification"
-      folder_name: "cifar10"
-      num_classes: 10
-      image_size: 32
-      num_channels: 3
-      test_size: 0.2
-
-    fashion_mnist:
-      name: "Fashion-MNIST"
-      short_name: "fashion_mnist"
-      type: "image"
-      task: "multiclass_classification"
-      folder_name: "fashion_mnist"
-      num_classes: 10
-      image_size: 28
-      num_channels: 1
-      test_size: 0.2
+  image_data:
+    name: "CIFAR-10"
+    type: "image"
+    task: "multiclass_classification"
+    num_classes: 10
+    image_size: 32
+    test_size: 0.2
+    folder_name: "cifar10"
+    num_channels: 3
+#    name: "Fashion-MNIST"
+#    type: "image"
+#    task: "multiclass_classification"
+#    num_classes: 10
+#    image_size: 28
+#    test_size: 0.2
+#    folder_name: "fashion_mnist"
+#    num_channels: 1
 
 models:
   random_forest:
@@ -80,14 +59,6 @@ models:
       random_state: 42
       n_jobs: -1
 
-  xgboost:
-    type: "tabular"
-    params:
-      n_estimators: 100
-      max_depth: 6
-      learning_rate: 0.1
-      random_state: 42
-
   fcnn:
     type: "tabular"
     params:
@@ -96,6 +67,14 @@ models:
       batch_size: 256
       epochs: 50
       early_stopping_patience: 5
+
+  xgboost:
+    type: "tabular"
+    params:
+      n_estimators: 100
+      max_depth: 6
+      learning_rate: 0.1
+      random_state: 42
 
   simple_cnn:
     type: "image"
@@ -169,21 +148,12 @@ stage3_inference:
 
     gradcam:
       target_layer: "auto"
-      max_samples_to_explain: 100
+      max_samples_to_explain: 20
 
   flagging:
+    mc_dropout_uncertainty_threshold: 0.0585
+    deep_ensemble_uncertainty_threshold: 0.0302
     explanation_consistency_threshold: 0.5
-    # Uncertainty thresholds are NOT stored here.
-    # They are computed from clean baseline data (90th percentile) and written to
-    # the thresholds_file by the baseline notebooks, keyed as:
-    #   "{dataset_short_name}_{model_name}_{uq_method}"
-    # Example: "diabetes_fcnn_mc", "cifar10_simple_cnn_de"
-    # Downstream notebooks read them via load_threshold().
-
-# Blind spot detection (population level collapse detector)
-collapse_detection:
-  enabled: true
-  entropy_drop_ratio: 0.5   # alarm if H < 0.5 * baseline H
 
 performance:
   track_training_time: true
