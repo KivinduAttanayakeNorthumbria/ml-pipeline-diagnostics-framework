@@ -250,6 +250,40 @@ def main():
     print("\nSignificance summary (Wilcoxon, UQ-only vs UQ+XAI GREEN accuracy):")
     print(significance.to_string(index=False))
 
+# AUROC aggregation per dataset + method - the strongest results table.
+    # AUROC is computed per experiment on 100-200 samples, so it does not
+    # depend on the number of experiments the way Wilcoxon does.
+    auroc_cols = ['auroc_uq', 'auroc_xai', 'auroc_uq_plus_xai']
+    auroc_agg = (
+        per_experiment
+        .groupby(['dataset', 'uq_method'])[auroc_cols]
+        .mean()
+        .round(4)
+        .reset_index()
+    )
+    # count how many experiments actually had a valid (non-null) AUROC
+    auroc_agg['n_valid'] = (
+        per_experiment
+        .groupby(['dataset', 'uq_method'])['auroc_uq_plus_xai']
+        .apply(lambda s: s.notna().sum())
+        .values
+    )
+    auroc_agg = auroc_agg.rename(columns={
+        'auroc_uq': 'mean_auroc_uq_only',
+        'auroc_xai': 'mean_auroc_xai_only',
+        'auroc_uq_plus_xai': 'mean_auroc_combined',
+    })
+    # does combining beat UQ alone, on average?
+    auroc_agg['combined_minus_uq'] = (
+        auroc_agg['mean_auroc_combined'] - auroc_agg['mean_auroc_uq_only']
+    ).round(4)
+
+    auroc_path = os.path.join(OUTPUT_DIR, 'auroc_by_dataset.csv')
+    auroc_agg.to_csv(auroc_path, index=False)
+    print(f"Wrote {auroc_path} ({len(auroc_agg)} rows)")
+
+    print("\nMean AUROC per dataset (accuracy-only reference = 0.5):")
+    print(auroc_agg.to_string(index=False))
 
 if __name__ == '__main__':
     main()
