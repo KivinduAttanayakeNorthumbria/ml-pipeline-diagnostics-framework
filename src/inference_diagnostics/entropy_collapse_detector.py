@@ -51,11 +51,12 @@ def parse_experiment_id(filename):
 
 
 def prediction_entropy(y_pred):
-    """Shannon entropy (natural log) of the predicted-class distribution."""
+    # Shannon entropy (natural log) of the predicted-class distribution.
     values, counts = np.unique(y_pred, return_counts=True)
     p = counts / counts.sum()
     # p > 0 always here, so no zero-log guard needed
-    return float(-np.sum(p * np.log(p)))
+    H = -np.sum(p * np.log(p))
+    return float(max(0.0, H))  # clip tiny negative float noise)
 
 
 def main():
