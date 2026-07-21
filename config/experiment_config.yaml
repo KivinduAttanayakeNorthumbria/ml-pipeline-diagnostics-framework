@@ -18,9 +18,9 @@ random_seeds:
 
 device: "cuda"
 
-# Switch datasets here. One line each. Do not comment out blocks.
-active_tabular: "diabetes"
-active_image: "cifar10"
+# Switch datasets here. One line each.
+active_tabular: "adult"
+active_image: "fashion_mnist"
 
 datasets:
   tabular:
@@ -173,17 +173,11 @@ stage3_inference:
 
   flagging:
     explanation_consistency_threshold: 0.5
-    # Uncertainty thresholds are NOT stored here.
-    # They are computed from clean baseline data (90th percentile) and written to
-    # the thresholds_file by the baseline notebooks, keyed as:
-    #   "{dataset_short_name}_{model_name}_{uq_method}"
-    # Example: "diabetes_fcnn_mc", "cifar10_simple_cnn_de"
-    # Downstream notebooks read them via load_threshold().
 
 # Blind spot detection (population level collapse detector)
 collapse_detection:
   enabled: true
-  entropy_drop_ratio: 0.5   # alarm if H < 0.5 * baseline H
+  entropy_drop_ratio: 0.5
 
 performance:
   track_training_time: true
