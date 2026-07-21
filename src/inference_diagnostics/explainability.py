@@ -113,6 +113,73 @@ def lime_tab(model, X_train, X_test, config, is_pytorch = False):
     print(f"LIME finished. Explained: {len(all_explanations)} samples.")
     return all_explanations, samples_explained
 
+# # Grad-CAM for image model
+# def gradcam_img(model, test_set, config):
+#     print("GradCam started.")
+#
+#     params = config['stage3_inference']['explainability']['gradcam']
+#     max_samples = params['max_samples_to_explain']
+#     device = torch.device(config['device'])
+#
+#     # Evaluation the model without dropout
+#     model.eval()
+#
+#     # Find the lat convolutional layer
+#     target_layer = None
+#     # Check the layers reverse to find the last Conv2d layer
+#     # Last layer contains meaningful features
+#     # for module in reversed(list(model.modules())):
+#     #     if isinstance(module, nn.Conv2d):
+#     #         target_layer = module
+#     #         break
+#     if hasattr(model, 'layer3'):
+#         print("*****************************************************************************************")
+#         target_layer = model.layer3[-1]
+#     else:
+#         for module in reversed(list(model.modules())):
+#             if isinstance(module, nn.Conv2d):
+#                 target_layer = module
+#                 break
+#
+#     # Verify there is a Conv2d layer
+#     if target_layer is None:
+#         raise ValueError("Target layer not found.")
+#
+#     # Create Grad-CAM object to watch at last target layer
+#     cam = GradCAM(model, target_layers = [target_layer] )
+#
+#     # Get samples to explain
+#     loader = DataLoader(test_set, batch_size = 1, shuffle = False)
+#
+#     # Empty array to collect heatmaps
+#     all_heatmaps = []
+#     count = 0
+#
+#     for batch_images, batch_labels in loader:
+#         if count >= max_samples:
+#             break
+#
+#         batch_images = batch_images.to(device)
+#
+#         # Get model prediction
+#         with torch.no_grad():
+#             output = model(batch_images)
+#             # Select the highest class
+#             predicted_class = output.argmax(dim = 1).item()
+#
+#         # Generate heatmap for predicted class
+#         # Going backwards to find the features which contribute most to the prediction
+#         targets = [ClassifierOutputTarget(predicted_class)]
+#         heatmap = cam(input_tensor = batch_images, targets = targets)
+#         all_heatmaps.append(heatmap[0])
+#
+#         count = count + 1
+#         if count % 50 == 0:
+#             print(f"GradCam finished. Explained: {count} / {max_samples} samples.")
+#
+#     print(f"GradCam finished. Explained: {len(all_heatmaps)} samples.")
+#     return all_heatmaps
+
 # Grad-CAM for image model
 def gradcam_img(model, test_set, config):
     print("GradCam started.")
@@ -124,18 +191,25 @@ def gradcam_img(model, test_set, config):
     # Evaluation the model without dropout
     model.eval()
 
-    # Find the lat convolutional layer
+    # Select the target convolutional layer
     target_layer = None
-    # Check the layers reverse to find the last Conv2d layer
-    # Last layer contains meaningful features
-    # for module in reversed(list(model.modules())):
-    #     if isinstance(module, nn.Conv2d):
-    #         target_layer = module
-    #         break
+
     if hasattr(model, 'layer3'):
-        print("*****************************************************************************************")
+        # ResNet path. layer4 gives zero gradients on small (32px) inputs,
+        # so layer3 is used as the target.
         target_layer = model.layer3[-1]
+    elif hasattr(model, 'conv2') and hasattr(model, 'conv3'):
+        # SimpleCNN path. conv3's feature map is 3x3 on 28px inputs, which is
+        # too small for Grad-CAM (gradients collapse to zero after ReLU).
+        # For small images target conv2 (7x7 on Fashion, 8x8 on CIFAR).
+        active_image = config['active_image']
+        image_size = config['datasets']['image'][active_image]['image_size']
+        if image_size <= 28:
+            target_layer = model.conv2
+        else:
+            target_layer = model.conv3
     else:
+        # Fallback: last Conv2d layer in the model
         for module in reversed(list(model.modules())):
             if isinstance(module, nn.Conv2d):
                 target_layer = module
@@ -145,11 +219,11 @@ def gradcam_img(model, test_set, config):
     if target_layer is None:
         raise ValueError("Target layer not found.")
 
-    # Create Grad-CAM object to watch at last target layer
-    cam = GradCAM(model, target_layers = [target_layer] )
+    # Create Grad-CAM object to watch at the target layer
+    cam = GradCAM(model, target_layers=[target_layer])
 
     # Get samples to explain
-    loader = DataLoader(test_set, batch_size = 1, shuffle = False)
+    loader = DataLoader(test_set, batch_size=1, shuffle=False)
 
     # Empty array to collect heatmaps
     all_heatmaps = []
@@ -165,17 +239,17 @@ def gradcam_img(model, test_set, config):
         with torch.no_grad():
             output = model(batch_images)
             # Select the highest class
-            predicted_class = output.argmax(dim = 1).item()
+            predicted_class = output.argmax(dim=1).item()
 
         # Generate heatmap for predicted class
         # Going backwards to find the features which contribute most to the prediction
         targets = [ClassifierOutputTarget(predicted_class)]
-        heatmap = cam(input_tensor = batch_images, targets = targets)
+        heatmap = cam(input_tensor=batch_images, targets=targets)
         all_heatmaps.append(heatmap[0])
 
         count = count + 1
         if count % 50 == 0:
-            print(f"GradCam finished. Explained: {count} / {max_samples} samples.")
+            print(f"GradCam progress: {count} / {max_samples} samples.")
 
     print(f"GradCam finished. Explained: {len(all_heatmaps)} samples.")
     return all_heatmaps
@@ -262,3 +336,80 @@ def collect_gradcam_feedback(num_samples):
     print(f"Correct: {correct}, Incorrect: {incorrect}, Partial: {partial}")
     return consistency_scores, correct, incorrect, partial
 
+# Resumable Grad-CAM feedback collection
+
+import os
+import json
+import numpy as np
+
+
+def collect_gradcam_feedback_resumable(num_samples, config, experiment_id, batch_size=10):
+    feedback_path = config['paths']['feedback_file']
+    os.makedirs(os.path.dirname(feedback_path), exist_ok=True)
+
+    # Load any existing feedback for this experiment
+    if os.path.exists(feedback_path):
+        with open(feedback_path, 'r') as f:
+            all_feedback = json.load(f)
+    else:
+        all_feedback = {}
+
+    saved = all_feedback.get(experiment_id, [])
+    start = len(saved)
+
+    if start >= num_samples:
+        print(f"All {num_samples} already reviewed for {experiment_id}. Using saved feedback.")
+        scores = np.array(saved[:num_samples], dtype=float)
+        return _summarise(scores)
+
+    if start > 0:
+        print(f"Resuming {experiment_id}: {start}/{num_samples} already done.")
+
+    score_map = {'1': 1.0, '2': 0.5, '3': 0.0}
+
+    print("Scoring: 1 = Correct, 2 = Partial, 3 = Incorrect")
+    print(f"Review in batches of {batch_size}. Type 'stop' to pause and resume later.\n")
+
+    current = start
+    while current < num_samples:
+        end = min(current + batch_size, num_samples)
+        prompt = f"Samples {current}-{end - 1} (need {end - current} verdicts): "
+        user_input = input(prompt).strip()
+
+        if user_input.lower() == 'stop':
+            print(f"Paused at {current}/{num_samples}. Re-run this cell to resume.")
+            raise KeyboardInterrupt("Feedback paused by user")
+
+        verdicts = [v.strip() for v in user_input.split(',') if v.strip() != '']
+
+        # Wrong count only discards THIS batch, not everything
+        if len(verdicts) != (end - current):
+            print(f"  Expected {end - current} verdicts, got {len(verdicts)}. Re-enter this batch.")
+            continue
+
+        # Validate values before committing the batch
+        if any(v not in score_map for v in verdicts):
+            print("  Only 1, 2 or 3 allowed. Re-enter this batch.")
+            continue
+
+        batch_scores = [score_map[v] for v in verdicts]
+        saved.extend(batch_scores)
+        all_feedback[experiment_id] = saved
+
+        # Checkpoint immediately
+        with open(feedback_path, 'w') as f:
+            json.dump(all_feedback, f, indent=2)
+
+        current = end
+        print(f"  Saved. Progress: {current}/{num_samples}")
+
+    scores = np.array(saved[:num_samples], dtype=float)
+    return _summarise(scores)
+
+
+def _summarise(scores):
+    correct = int(np.sum(scores == 1.0))
+    partial = int(np.sum(scores == 0.5))
+    incorrect = int(np.sum(scores == 0.0))
+    print(f"Correct: {correct}, Incorrect: {incorrect}, Partial: {partial}")
+    return scores, correct, incorrect, partial
