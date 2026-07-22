@@ -47,38 +47,72 @@ def generate_report(config, dataset_name, stage1_result = None, stage2_result = 
 def generate_recommendation(report):
     recommendations = []
 
-    if 'stage1' in report:
-        results = report['stage1']['result']
-        if 'accuracy_drop' in results:
-            if results['accuracy_drop'] > 0.05:
+    result_blocks = []
+    for stage in ['stage1', 'stage2', 'stage3']:
+        if stage in report and 'result' in report[stage]:
+            result_blocks.append(report[stage]['result'])
+
+    for result in result_blocks:
+        report_cr = result.get('classification_report')
+        accuracy = result.get('accuracy')
+
+        # Rule 1: model collapse via macro F1
+        if report_cr is not None:
+            macro_f1 = report_cr.get('macro avg', {}).get('f1-score')
+            if macro_f1 is not None and macro_f1 < 0.5:
                 recommendations.append(
-                    "Data quality is significantly impacting on model performance and implement data validation checks before training.",
+                    "Possible model collapse: macro F1 below 0.5 suggests the model "
+                    "may be predicting a single class. Check class balance and training."
                 )
 
-    if 'stage2' in report:
-        results = report['stage2']['result']
-        if 'seed_variation' in results:
-            if results['seed_variation'].get('std_accuracy', 0) > 0.02:
+        # Rule 2: accuracy vs macro F1 gap (imbalance masking accuracy)
+        if report_cr is not None and accuracy is not None:
+            macro_f1 = report_cr.get('macro avg', {}).get('f1-score')
+            if macro_f1 is not None and (accuracy - macro_f1) > 0.2:
                 recommendations.append(
-                    "There is a high variance across seeds and consider using ensemble methods or increasing training data."
+                    "Large gap between accuracy and macro F1: accuracy is likely "
+                    "inflated by class imbalance. Report F1 alongside accuracy."
                 )
 
-    if 'stage3' in report:
-        results = report['stage3']['result']
-        if 'flag_evaluation' in results:
-            flag_evaluation = results['flag_evaluation']
-            red_count = flag_evaluation['RED']['count']
-            total = flag_evaluation['RED']['count'] + flag_evaluation['YELLOW']['count'] + flag_evaluation['GREEN']['count']
-            if total > 0 and red_count / total > 0.1:
-                recommendations.append(
-                    "There are more than 10% of RED flagged predictions and review the model architecture and training data quality."
-                )
+        # Rule 3: high rate of flagged-unreliable predictions
+        for flag_key in ['flagging_mc', 'flagging_de']:
+            flagging = result.get(flag_key)
+            if flagging is not None:
+                red = flagging.get('RED', {}).get('count', 0)
+                yellow = flagging.get('YELLOW', {}).get('count', 0)
+                green = flagging.get('GREEN', {}).get('count', 0)
+                total = red + yellow + green
+                if total > 0 and (red + yellow) / total > 0.5:
+                    method = 'MC Dropout' if flag_key == 'flagging_mc' else 'Deep Ensembles'
+                    recommendations.append(
+                        f"Over half of predictions flagged unreliable under {method}. "
+                        "Review data quality and calibration before relying on outputs."
+                    )
+                break
 
-    if len(recommendations) == 0:
-        recommendations.append(
-            "No major issues detected."
-        )
-    return recommendations
+        # Rule 4: degenerate (near-zero) uncertainty
+        for unc_key, method in [('mc_uncertainty', 'MC Dropout'),
+                                ('de_uncertainty', 'Deep Ensembles')]:
+            unc = result.get(unc_key)
+            if unc is not None:
+                mean_unc = unc.get('mean')
+                if mean_unc is not None and mean_unc < 0.0001:
+                    recommendations.append(
+                        f"{method} produced near-zero uncertainty and is uninformative "
+                        "for this model (no dropout layers or internal ensemble). "
+                        "Rely on the alternative UQ method."
+                    )
+
+    seen = set()
+    unique = []
+    for rec in recommendations:
+        if rec not in seen:
+            seen.add(rec)
+            unique.append(rec)
+
+    if len(unique) == 0:
+        unique.append("No major issues detected.")
+    return unique
 
 # Save report as JSON file
 def save_report(report, filename, config):
