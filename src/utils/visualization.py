@@ -162,28 +162,35 @@ def plot_uncertainty_distribution(uncertainty, title, threshold, config):
     save_figure(figure, f"uncertainty_distribution_{title.lower().replace(' ', '_')}.png", config)
 
 # Plot Grad-CAM heatmaps for sample images
-def plot_gradcam_sample(test_set, heatmaps, num_samples, config, title, save = True):
+def plot_gradcam_sample(test_set, heatmaps, num_samples, config, title, save=True):
     columns = 4
     rows = (num_samples + columns - 1) // columns
-    figure, axes = plt.subplots(rows, columns * 2, figsize = (20, 3 * rows))
+    figure, axes = plt.subplots(rows, columns * 2, figsize=(20, 3 * rows))
 
     for i in range(num_samples):
         row = i // columns
         column = (i % columns) * 2
 
         image, label = test_set[i]
-        # Convert tensor to displayable image
         image_display = image.permute(1, 2, 0).numpy()
         image_display = (image_display - image_display.min()) / (image_display.max() - image_display.min())
 
+        # Grayscale images have a trailing channel dim (H,W,1) - squeeze it
+        # and force gray colormap so the base image isn't false-coloured
+        if image_display.shape[2] == 1:
+            image_display = image_display.squeeze(2)
+            base_cmap = 'gray'
+        else:
+            base_cmap = None
+
         # Original image
-        axes[row][column].imshow(image_display)
+        axes[row][column].imshow(image_display, cmap=base_cmap)
         axes[row][column].set_title(f"[{i}] class:{label}")
         axes[row][column].axis('off')
 
-        # heatmap overlay
-        axes[row][column + 1].imshow(image_display)
-        axes[row][column + 1].imshow(heatmaps[i], cmap = 'jet', alpha = 0.5)
+        # heatmap overlay - gray base so the jet heatmap stands out
+        axes[row][column + 1].imshow(image_display, cmap=base_cmap)
+        axes[row][column + 1].imshow(heatmaps[i], cmap='jet', alpha=0.5)
         axes[row][column + 1].set_title(f"[{i}] heatmap")
         axes[row][column + 1].axis('off')
 
